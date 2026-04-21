@@ -191,8 +191,9 @@
     .ev-detail-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
     .ev-detail-title { font-size: 18px; font-weight: 700; }
     .ev-detail-meta { font-size: 14px; color: #888; margin-bottom: 22px; line-height: 1.9; white-space: pre-line; }
-    .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .btn-close { padding: 14px; border: 1.5px solid #e8e8ea; border-radius: 13px; background: white; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; }
+    .detail-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .btn-close  { padding: 14px; border: 1.5px solid #e8e8ea; border-radius: 13px; background: white; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; }
+    .btn-edit   { padding: 14px; border: none; border-radius: 13px; background: #eff6ff; color: #3b82f6; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; }
     .btn-delete { padding: 14px; border: none; border-radius: 13px; background: #fef2f2; color: #ef4444; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; }
 
     /* 저장 중 오버레이 */
@@ -324,7 +325,7 @@ let currentYear, currentMonth;
 let events = [];
 let holidays = {};
 let eventMap = {};
-let selDate='', selPerson='', selType='';
+let selDate='', selPerson='', selType='', editingId=null, currentDetailEv=null;
 const today = new Date(); today.setHours(0,0,0,0);
 
 /* ═══════════════════════════════════════
@@ -546,7 +547,7 @@ function timeSelect(id,def){
   return h+'</select>';
 }
 
-function openAdd(ds){ selDate=ds; selPerson=''; selType=''; setModal(renderStep1()); showModal(); }
+function openAdd(ds){ selDate=ds; selPerson=''; selType=''; editingId=null; setModal(renderStep1()); showModal(); }
 function renderStep1(){
   return `<div class="modal-date">📅 ${korDate(selDate)}</div>
     <div class="person-btns">
@@ -588,13 +589,17 @@ function selectType(t){
 }
 
 async function doSave(){
+  const isEdit = !!editingId;
   const data={
-    action:'save', date:selDate, person:selPerson, type:selType,
+    action: isEdit ? 'update' : 'save',
+    id: editingId,
+    date:selDate, person:selPerson, type:selType,
     detail: document.getElementById('detailText')?.value.trim()||'',
     startTime: document.getElementById('startTime')?.value||'',
     endTime: document.getElementById('endTime')?.value||''
   };
-  closeModal(); showSaving(true,'저장 중...');
+  editingId = null;
+  closeModal(); showSaving(true, isEdit ? '수정 중...' : '저장 중...');
   try{ await postToScript(data); } catch(e){ alert('저장 실패: '+e.message); }
   showSaving(false); loadData();
 }
@@ -604,6 +609,7 @@ async function doSave(){
 ═══════════════════════════════════════ */
 function openDetailById(id){ const ev=eventMap[id]; if(ev) openDetail(ev); }
 function openDetail(ev){
+  currentDetailEv = ev;
   const color=COLORS[ev.type]||'#999'; const pn=getPersonName(ev.person); const em=getPersonEmoji(ev.person);
   let title=ev.type; if((ev.type==='기타'||ev.type==='개인일정')&&ev.detail) title=ev.detail;
   let meta=korDate(ev.date);
@@ -611,8 +617,32 @@ function openDetail(ev){
   else{ if(ev.startTime)meta+='\n'+ev.startTime+(ev.endTime?' ~ '+ev.endTime:''); }
   setModal(`<div class="ev-detail-header"><div class="ev-detail-dot" style="background:${color}"></div><div class="ev-detail-title">${em} ${pn} · ${title}</div></div>
     <div class="ev-detail-meta">${meta}</div>
-    <div class="detail-actions"><button class="btn-close" onclick="closeModal()">닫기</button><button class="btn-delete" onclick="doDelete('${ev.id}')">삭제</button></div>`);
+    <div class="detail-actions">
+      <button class="btn-close" onclick="closeModal()">닫기</button>
+      <button class="btn-edit" onclick="openEdit()">수정</button>
+      <button class="btn-delete" onclick="doDelete('${ev.id}')">삭제</button>
+    </div>`);
   showModal();
+}
+function openEdit(){
+  if(!currentDetailEv) return;
+  const ev = currentDetailEv;
+  editingId  = ev.id;
+  selDate    = ev.date;
+  selPerson  = getPersonName(ev.person);
+  selType    = ev.type;
+  setModal(renderStep2());
+  selectType(ev.type);
+  // selectType이 input 생성 후 바로 값 채우기
+  const detailEl = document.getElementById('detailText');
+  const startEl  = document.getElementById('startTime');
+  const endEl    = document.getElementById('endTime');
+  if(detailEl) detailEl.value = ev.detail   || '';
+  if(startEl)  startEl.value  = ev.startTime|| '';
+  if(endEl)    endEl.value    = ev.endTime  || '';
+  // 저장 버튼 텍스트 변경
+  const btn = document.getElementById('btnSave');
+  if(btn) btn.textContent = '수정 완료';
 }
 async function doDelete(id){
   if(!confirm('이 일정을 삭제할까요?')) return;
