@@ -445,7 +445,7 @@ function renderPeriodTitle(){
     const dates=getWeekDates(currentWeekSunday); const s=dates[0],e=dates[6];
     el.textContent = s.getMonth()===e.getMonth()
       ? s.getFullYear()+'년 '+(s.getMonth()+1)+'월 '+s.getDate()+'~'+e.getDate()+'일'
-      : (s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
+      : s.getFullYear()+'년 '+(s.getMonth()+1)+'월 '+s.getDate()+'일 ~ '+(e.getMonth()+1)+'월 '+e.getDate()+'일';
   } else {
     el.textContent = currentYear+'년 '+currentMonth+'월';
   }
