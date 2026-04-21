@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>가족공유 캘린더</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #f0f2f5; color: #1d1d1f;
+      display: flex; flex-direction: column;
+    }
+    .app {
+      max-width: 480px; width: 100%; margin: 0 auto;
+      padding: 12px 10px; flex: 1; display: flex; flex-direction: column;
+    }
+
+    /* ── 헤더 ── */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .nav-btn {
+      background: white; border: none; width: 36px; height: 36px; border-radius: 50%;
+      font-size: 20px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .period-title { font-size: 16px; font-weight: 700; text-align: center; flex: 1; padding: 0 8px; }
+
+    /* ── 뷰 토글 ── */
+    .view-toggle { display: flex; background: #e4e4e7; border-radius: 9px; padding: 2px; margin-bottom: 10px; }
+    .toggle-btn {
+      flex: 1; padding: 7px; border: none; background: transparent; border-radius: 7px;
+      font-size: 13px; font-weight: 600; cursor: pointer; color: #888; font-family: inherit; transition: all 0.15s;
+    }
+    .toggle-btn.active { background: white; color: #1d1d1f; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+    /* ── 범례 ── */
+    .legend {
+      display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px;
+      padding: 9px 11px; background: white; border-radius: 10px; font-size: 11px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; color: #555; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── 로딩 ── */
+    .loading-bar {
+      height: 3px; background: linear-gradient(90deg,#3b82f6 0%,#93c5fd 50%,#3b82f6 100%);
+      background-size: 200%; border-radius: 2px; margin-bottom: 8px;
+      animation: loadingAnim 1.2s linear infinite;
+    }
+    @keyframes loadingAnim { to { background-position: -200%; } }
+
+    /* ══ 주간 뷰 ══ */
+    #weekView { flex: 1; display: flex; flex-direction: column; }
+
+    .small-week-wrap { background: white; border-radius: 12px; padding: 8px 4px; margin-bottom: 6px; }
+    .small-week-label { font-size: 10px; font-weight: 700; color: #aaa; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; padding-left: 4px; }
+    .small-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .small-day { text-align: center; cursor: pointer; padding: 2px 1px; }
+    .small-day:hover { opacity: 0.65; }
+    .small-day-num {
+      font-size: 12px; font-weight: 500; width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 3px;
+    }
+    .small-day-num.sun { color: #ef4444; }
+    .small-day-num.sat { color: #3b82f6; }
+    .small-day-num.today-sm { background: #3b82f6; color: white !important; }
+    .dots-row { display: flex; justify-content: center; gap: 2px; min-height: 7px; }
+    .dot-sm { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+    .this-week-divider { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; }
+    .divider-line { flex: 1; height: 1.5px; background: #dbeafe; }
+    .divider-label { font-size: 11px; font-weight: 800; color: #3b82f6; letter-spacing: 0.5px; }
+    .divider-label.gray { color: #aaa; }
+
+    .large-week-wrap {
+      background: white; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 6px;
+      flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
+    .week-hdr-row { display: grid; grid-template-columns: repeat(7, 1fr); background: #f7f7f9; flex-shrink: 0; }
+    .week-hdr-cell { text-align: center; padding: 8px 0 6px; font-size: 11px; font-weight: 700; color: #888; }
+    .week-hdr-cell.sun { color: #ef4444; }
+    .week-hdr-cell.sat { color: #3b82f6; }
+
+    .large-week-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      flex: 1; min-height: 0; align-content: stretch;
+    }
+    .large-day {
+      min-height: 80px; border-right: 1px solid #f0f0f0;
+      padding: 5px 3px; cursor: pointer; transition: background 0.1s; overflow: hidden;
+    }
+    .large-day:last-child { border-right: none; }
+    .large-day:hover { background: #f8f9ff; }
+    .large-day.today-cell { background: #eff6ff; }
+
+    .ld-num {
+      font-size: 12px; font-weight: 600; width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 3px;
+    }
+    .ld-num.sun { color: #ef4444; }
+    .ld-num.sat { color: #3b82f6; }
+    .ld-num.today-dot { background: #3b82f6; color: white !important; }
+    .ld-num.holi { color: #ef4444 !important; }
+    .holi-label { font-size: 8px; color: #ef4444; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .ev-card { font-size: 9px; padding: 3px 4px; border-radius: 5px; color: white; margin-bottom: 2px; cursor: pointer; line-height: 1.4; overflow: hidden; }
+    .ev-card:hover { opacity: 0.85; }
+    .ev-card-type { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ev-card-time { opacity: 0.92; white-space: nowrap; overflow: hidden; font-size: 8.5px; }
+
+    /* ══ 월별 뷰 ══ */
+    .calendar { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .weekdays-hdr { display: grid; grid-template-columns: repeat(7, 1fr); background: #f7f7f9; }
+    .weekday-cell { text-align: center; padding: 10px 0 8px; font-size: 11px; font-weight: 700; color: #888; }
+    .weekday-cell:first-child { color: #ef4444; }
+    .weekday-cell:last-child { color: #3b82f6; }
+    .month-days { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .month-day {
+      min-height: 72px; border-right: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;
+      padding: 5px 4px; cursor: pointer; transition: background 0.1s;
+    }
+    .month-day:hover { background: #f8f9ff; }
+    .month-day:nth-child(7n) { border-right: none; }
+    .month-day.other { background: #fafafa; cursor: default; }
+    .month-day.other:hover { background: #fafafa; }
+    .month-day.today-cell { background: #eff6ff; }
+    .mday-num {
+      font-size: 12px; font-weight: 500; width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 2px;
+    }
+    .month-day.other .mday-num { color: #ccc; }
+    .month-day:nth-child(7n+1) .mday-num { color: #ef4444; }
+    .month-day:nth-child(7n) .mday-num { color: #3b82f6; }
+    .month-day.today-cell .mday-num { background: #3b82f6; color: white !important; }
+    .month-day.is-holi .mday-num { color: #ef4444 !important; }
+    .mholi-label { font-size: 9px; color: #ef4444; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .month-pill {
+      font-size: 9.5px; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px;
+      color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;
+    }
+    .month-pill:hover { opacity: 0.85; }
+
+    /* ══ 모달 ══ */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 100; align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; animation: fadeIn 0.15s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: white; border-radius: 24px 24px 0 0; padding: 20px 20px 32px;
+      width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto;
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-handle { width: 36px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 0 auto 18px; }
+    .modal-date { font-size: 14px; font-weight: 600; color: #666; margin-bottom: 18px; }
+    .back-btn { background: none; border: none; font-size: 13px; color: #3b82f6; cursor: pointer; margin-bottom: 12px; padding: 0; font-family: inherit; font-weight: 600; }
+
+    .person-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .person-btn { padding: 20px 12px; border: 2px solid #e8e8ea; border-radius: 16px; background: white; cursor: pointer; text-align: center; transition: all 0.15s; }
+    .person-btn:hover { border-color: #3b82f6; background: #f0f7ff; }
+    .person-btn .p-emoji { font-size: 30px; margin-bottom: 6px; }
+    .person-btn .p-name { font-size: 15px; font-weight: 700; }
+
+    .type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 16px; }
+    .type-btn { padding: 12px 6px; border: 2px solid #e8e8ea; border-radius: 12px; background: white; cursor: pointer; font-size: 12px; font-weight: 600; text-align: center; transition: all 0.15s; color: #333; font-family: inherit; }
+    .type-btn:hover { border-color: #aaa; }
+
+    .input-section { margin-bottom: 14px; }
+    .input-section label { display: block; font-size: 11px; font-weight: 700; color: #999; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .input-section input[type="text"],
+    .input-section .time-sel {
+      width: 100%; padding: 11px 13px; border: 1.5px solid #e8e8ea;
+      border-radius: 12px; font-size: 15px; outline: none; transition: border-color 0.15s;
+      font-family: inherit; background: white; cursor: pointer;
+      appearance: none; -webkit-appearance: none; color: #1d1d1f;
+    }
+    .input-section input[type="text"]:focus,
+    .input-section .time-sel:focus { border-color: #3b82f6; }
+    .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .modal-actions { display: grid; grid-template-columns: 1fr 2.5fr; gap: 10px; margin-top: 6px; }
+    .btn-cancel { padding: 14px; border: 1.5px solid #e8e8ea; border-radius: 13px; background: white; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; font-family: inherit; }
+    .btn-save { padding: 14px; border: none; border-radius: 13px; background: #3b82f6; color: white; cursor: pointer; font-size: 15px; font-weight: 700; font-family: inherit; transition: background 0.15s; }
+    .btn-save:hover { background: #2563eb; }
+    .btn-save:disabled { background: #c0c7d0; cursor: default; }
+
+    .ev-detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .ev-detail-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+    .ev-detail-title { font-size: 18px; font-weight: 700; }
+    .ev-detail-meta { font-size: 14px; color: #888; margin-bottom: 22px; line-height: 1.9; white-space: pre-line; }
+    .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-close { padding: 14px; border: 1.5px solid #e8e8ea; border-radius: 13px; background: white; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; }
+    .btn-delete { padding: 14px; border: none; border-radius: 13px; background: #fef2f2; color: #ef4444; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; }
+
+    /* 저장 중 오버레이 */
+    .saving-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+    .saving-overlay.show { display: flex; }
+    .saving-spinner { width: 36px; height: 36px; border: 3px solid #e0e0e0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .saving-text { font-size: 14px; font-weight: 600; color: #3b82f6; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <button class="nav-btn" onclick="navPrev()">‹</button>
+    <div class="period-title" id="periodTitle"></div>
+    <button class="nav-btn" onclick="navNext()">›</button>
+  </div>
+  <div class="view-toggle">
+    <button class="toggle-btn" id="btnWeek" onclick="setView('week')">주간</button>
+    <button class="toggle-btn" id="btnMonth" onclick="setView('month')">월별</button>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#93c5fd"></div>재택</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>용인출근</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>보험현장</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>현장공사</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>출장</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div>레슨/오케</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f472b6"></div>개인일정</div>
+  </div>
+  <div id="loadingBar" style="display:none"><div class="loading-bar"></div></div>
+
+  <!-- 주간 뷰 -->
+  <div id="weekView">
+    <div class="small-week-wrap">
+      <div class="small-week-label">지난주</div>
+      <div class="small-week-grid" id="prevWeekGrid"></div>
+    </div>
+    <div class="this-week-divider">
+      <div class="divider-line"></div><div class="divider-label">이번주</div><div class="divider-line"></div>
+    </div>
+    <div class="large-week-wrap">
+      <div class="week-hdr-row" id="weekHdrRow"></div>
+      <div class="large-week-grid" id="currentWeekGrid"></div>
+    </div>
+    <div class="this-week-divider">
+      <div class="divider-line"></div><div class="divider-label gray">다음주</div><div class="divider-line"></div>
+    </div>
+    <div class="small-week-wrap">
+      <div class="small-week-grid" id="nextWeekGrid"></div>
+    </div>
+  </div>
+
+  <!-- 월별 뷰 -->
+  <div id="monthView" style="display:none">
+    <div class="calendar">
+      <div class="weekdays-hdr">
+        <div class="weekday-cell">일</div><div class="weekday-cell">월</div>
+        <div class="weekday-cell">화</div><div class="weekday-cell">수</div>
+        <div class="weekday-cell">목</div><div class="weekday-cell">금</div>
+        <div class="weekday-cell">토</div>
+      </div>
+      <div class="month-days" id="calendarDays"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- 저장 중 오버레이 -->
+<div class="saving-overlay" id="savingOverlay">
+  <div class="saving-spinner"></div>
+  <div class="saving-text" id="savingText">저장 중...</div>
+</div>
+
+<script src="config.js"></script>
+<script>
+/* ═══════════════════════════════════════
+   상수
+═══════════════════════════════════════ */
+const COLORS = {
+  '재택':'#93c5fd','용인출근':'#3b82f6','보험현장':'#f97316',
+  '현장공사':'#ef4444','출장':'#8b5cf6','기타':'#6b7280',
+  '바이올린레슨':'#ec4899','오케스트라':'#a855f7','개인일정':'#f472b6'
+};
+const SHORT = {
+  '재택':'재택','용인출근':'용인','보험현장':'보험','현장공사':'공사',
+  '출장':'출장','기타':'기타','바이올린레슨':'🎻레슨','오케스트라':'🎶오케','개인일정':'📌'
+};
+const MINSEOB_TYPES = ['재택','용인출근','보험현장','현장공사','출장','기타'];
+const YUNJU_TYPES   = ['바이올린레슨','오케스트라','개인일정'];
+const WEEK_KR = ['일','월','화','수','목','금','토'];
+
+/* ═══════════════════════════════════════
+   공휴일
+═══════════════════════════════════════ */
+const LUNAR_HOLIDAYS = {
+  2025:{seollal:[[1,28],[1,29],[1,30]],buddha:[5,5],chuseok:[[10,5],[10,6],[10,7]]},
+  2026:{seollal:[[2,16],[2,17],[2,18]],buddha:[5,24],chuseok:[[9,24],[9,25],[9,26]]},
+  2027:{seollal:[[2,6],[2,7],[2,8]],buddha:[5,13],chuseok:[[10,13],[10,14],[10,15]]},
+  2028:{seollal:[[1,26],[1,27],[1,28]],buddha:[5,2],chuseok:[[10,2],[10,3],[10,4]]}
+};
+function getHolidays(year){
+  const h={};
+  const s=(m,d,n)=>{ h[year+'-'+pad(m)+'-'+pad(d)]=n; };
+  s(1,1,'신정');s(3,1,'삼일절');s(5,5,'어린이날');s(6,6,'현충일');
+  s(8,15,'광복절');s(10,3,'개천절');s(10,9,'한글날');s(12,25,'성탄절');
+  const l=LUNAR_HOLIDAYS[year];
+  if(l){
+    ['설날연휴','설날','설날연휴'].forEach((n,i)=>s(l.seollal[i][0],l.seollal[i][1],n));
+    s(l.buddha[0],l.buddha[1],'부처님오신날');
+    ['추석연휴','추석','추석연휴'].forEach((n,i)=>s(l.chuseok[i][0],l.chuseok[i][1],n));
+  }
+  return h;
+}
+
+/* ═══════════════════════════════════════
+   상태
+═══════════════════════════════════════ */
+let currentView = 'week';
+let currentWeekSunday = getWeekSunday(new Date());
+let currentYear, currentMonth;
+let events = [];
+let holidays = {};
+let eventMap = {};
+let selDate='', selPerson='', selType='';
+const today = new Date(); today.setHours(0,0,0,0);
+
+/* ═══════════════════════════════════════
+   유틸
+═══════════════════════════════════════ */
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(y,m,d){ return y+'-'+pad(m)+'-'+pad(d); }
+function todayStr(){ return fmtDate(today.getFullYear(),today.getMonth()+1,today.getDate()); }
+function korDate(s){ const[y,m,d]=s.split('-').map(Number); return m+'월 '+d+'일 ('+WEEK_KR[new Date(y,m-1,d).getDay()]+')'; }
+function getWeekSunday(date){ const d=new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate()-d.getDay()); return d; }
+function getWeekDates(sun){ return Array.from({length:7},(_,i)=>{ const d=new Date(sun); d.setDate(sun.getDate()+i); return d; }); }
+function getPersonName(p){ return (p==='남편'||p==='민섭')?'민섭':(p==='나'||p==='윤주')?'윤주':p; }
+function getPersonEmoji(p){ return getPersonName(p)==='민섭'?'👨':'👩'; }
+function eventsForDate(ds){ return events.filter(e=>e.date===ds); }
+
+/* ═══════════════════════════════════════
+   Google Sheets API — 데이터 읽기
+═══════════════════════════════════════ */
+async function fetchSheetData(){
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(CONFIG.SHEET_NAME)}?key=${CONFIG.API_KEY}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Sheets API 오류: '+res.status);
+  const json = await res.json();
+  return (json.values || []).slice(1); // 헤더 제외
+}
+
+function parseRows(rows){
+  return rows
+    .filter(r => r[0])
+    .map(r => ({
+      id:        r[0]||'',
+      date:      r[1]||'',
+      person:    r[2]||'',
+      type:      r[3]||'',
+      detail:    r[4]||'',
+      startTime: r[5]||'',
+      endTime:   r[6]||''
+    }));
+}
+
+/* ═══════════════════════════════════════
+   Apps Script API — 데이터 쓰기/삭제
+═══════════════════════════════════════ */
+async function postToScript(payload){
+  await fetch(CONFIG.APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',          // Apps Script CORS 우회
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  // no-cors라 응답 못 읽음 → 1.5초 후 재로딩
+  await new Promise(r => setTimeout(r, 1500));
+}
+
+/* ═══════════════════════════════════════
+   데이터 로드
+═══════════════════════════════════════ */
+async function loadData(){
+  showLoading(true);
+  try {
+    const rows = await fetchSheetData();
+    const all  = parseRows(rows);
+    events = all;
+    eventMap = {};
+    all.forEach(e => eventMap[e.id] = e);
+  } catch(e) {
+    console.error(e);
+    alert('데이터 로딩 실패: '+e.message);
+  }
+  showLoading(false);
+  currentView==='week' ? renderWeekView() : renderMonthView();
+}
+
+function showLoading(on){
+  document.getElementById('loadingBar').style.display = on ? 'block' : 'none';
+}
+function showSaving(on, text='저장 중...'){
+  const el = document.getElementById('savingOverlay');
+  document.getElementById('savingText').textContent = text;
+  el.classList.toggle('show', on);
+}
+
+/* ═══════════════════════════════════════
+   뷰 전환
+═══════════════════════════════════════ */
+function init(){
+  currentYear  = today.getFullYear();
+  currentMonth = today.getMonth()+1;
+  setView('week');
+}
+
+function setView(v){
+  currentView = v;
+  document.getElementById('btnWeek').classList.toggle('active', v==='week');
+  document.getElementById('btnMonth').classList.toggle('active', v==='month');
+  document.getElementById('weekView').style.display  = v==='week'  ? 'flex' : 'none';
+  document.getElementById('monthView').style.display = v==='month' ? 'block' : 'none';
+  if(v==='month'){ currentYear=currentWeekSunday.getFullYear(); currentMonth=currentWeekSunday.getMonth()+1; }
+  holidays = Object.assign({}, getHolidays(currentYear), getHolidays(currentYear-1), getHolidays(currentYear+1));
+  loadData();
+}
+
+function navPrev(){
+  if(currentView==='week'){ currentWeekSunday.setDate(currentWeekSunday.getDate()-7); loadData(); }
+  else { if(--currentMonth<1){currentMonth=12;currentYear--;} holidays=Object.assign({},getHolidays(currentYear)); loadData(); }
+  renderPeriodTitle();
+}
+function navNext(){
+  if(currentView==='week'){ currentWeekSunday.setDate(currentWeekSunday.getDate()+7); loadData(); }
+  else { if(++currentMonth>12){currentMonth=1;currentYear++;} holidays=Object.assign({},getHolidays(currentYear)); loadData(); }
+  renderPeriodTitle();
+}
+function jumpToWeek(ds){ const[y,m,d]=ds.split('-').map(Number); currentWeekSunday=getWeekSunday(new Date(y,m-1,d)); loadData(); }
+
+function renderPeriodTitle(){
+  const el = document.getElementById('periodTitle');
+  if(currentView==='week'){
+    const dates=getWeekDates(currentWeekSunday); const s=dates[0],e=dates[6];
+    el.textContent = s.getMonth()===e.getMonth()
+      ? s.getFullYear()+'년 '+(s.getMonth()+1)+'월 '+s.getDate()+'~'+e.getDate()+'일'
+      : (s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
+  } else {
+    el.textContent = currentYear+'년 '+currentMonth+'월';
+  }
+}
+
+/* ═══════════════════════════════════════
+   주간 뷰 렌더링
+═══════════════════════════════════════ */
+function renderWeekView(){
+  renderPeriodTitle();
+  const tStr=todayStr();
+  const prevSun=new Date(currentWeekSunday); prevSun.setDate(prevSun.getDate()-7);
+  const nextSun=new Date(currentWeekSunday); nextSun.setDate(nextSun.getDate()+7);
+  renderSmallWeek('prevWeekGrid',prevSun,tStr);
+  renderLargeWeek(tStr);
+  renderSmallWeek('nextWeekGrid',nextSun,tStr);
+}
+
+function renderSmallWeek(id,sunday,tStr){
+  const dates=getWeekDates(sunday);
+  document.getElementById(id).innerHTML = dates.map((d,i)=>{
+    const ds=fmtDate(d.getFullYear(),d.getMonth()+1,d.getDate());
+    const isT=ds===tStr; const evs=eventsForDate(ds);
+    const dc=i===0?' sun':i===6?' sat':'';
+    return `<div class="small-day" onclick="jumpToWeek('${ds}')">
+      <div class="small-day-num${dc}${isT?' today-sm':''}">${d.getDate()}</div>
+      <div class="dots-row">${evs.slice(0,3).map(e=>`<div class="dot-sm" style="background:${COLORS[e.type]||'#999'}"></div>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderLargeWeek(tStr){
+  const dates=getWeekDates(currentWeekSunday);
+  document.getElementById('weekHdrRow').innerHTML = dates.map((_,i)=>
+    `<div class="week-hdr-cell${i===0?' sun':i===6?' sat':''}">${WEEK_KR[i]}</div>`
+  ).join('');
+
+  document.getElementById('currentWeekGrid').innerHTML = dates.map((d,i)=>{
+    const ds=fmtDate(d.getFullYear(),d.getMonth()+1,d.getDate());
+    const isT=ds===tStr; const holi=holidays[ds]; const evs=eventsForDate(ds);
+    const dc=i===0?' sun':i===6?' sat':'';
+    let html=`<div class="large-day${isT?' today-cell':''}" onclick="openAdd('${ds}')">
+      <div class="ld-num${dc}${isT?' today-dot':''}${holi?' holi':''}">${d.getDate()}</div>`;
+    if(holi) html+=`<div class="holi-label">${holi}</div>`;
+    evs.forEach(ev=>{
+      const pn=getPersonName(ev.person); const em=getPersonEmoji(ev.person);
+      let tt=ev.type==='기타'&&ev.detail?ev.detail:ev.type==='개인일정'&&ev.detail?ev.detail:(SHORT[ev.type]||ev.type);
+      let tm='';
+      if(pn==='민섭'){ if(ev.startTime)tm+='출'+ev.startTime; if(ev.startTime&&ev.endTime)tm+=' '; if(ev.endTime)tm+='집'+ev.endTime; }
+      else{ if(ev.startTime&&ev.endTime)tm=ev.startTime+'~'+ev.endTime; else if(ev.startTime)tm=ev.startTime; }
+      html+=`<div class="ev-card" style="background:${COLORS[ev.type]||'#999'}" onclick="event.stopPropagation();openDetailById('${ev.id}')">
+        <div class="ev-card-type">${em}${tt}</div>${tm?`<div class="ev-card-time">${tm}</div>`:''}
+      </div>`;
+    });
+    return html+'</div>';
+  }).join('');
+}
+
+/* ═══════════════════════════════════════
+   월별 뷰 렌더링
+═══════════════════════════════════════ */
+function renderMonthView(){
+  renderPeriodTitle();
+  const container=document.getElementById('calendarDays'); container.innerHTML='';
+  const firstDow=new Date(currentYear,currentMonth-1,1).getDay();
+  const lastDate=new Date(currentYear,currentMonth,0).getDate();
+  const prevLast=new Date(currentYear,currentMonth-1,0).getDate();
+  const tStr=todayStr();
+
+  const makeCell=(dayNum,ds,isOther)=>{
+    const holi=isOther?null:holidays[ds]; const evs=isOther?[]:eventsForDate(ds); const isT=ds===tStr;
+    const cell=document.createElement('div');
+    cell.className='month-day'+(isOther?' other':'')+(isT?' today-cell':'')+(holi&&!isOther?' is-holi':'');
+    const num=document.createElement('div'); num.className='mday-num'; num.textContent=dayNum; cell.appendChild(num);
+    if(holi&&!isOther){ const hl=document.createElement('div'); hl.className='mholi-label'; hl.textContent=holi; cell.appendChild(hl); }
+    evs.forEach(ev=>{
+      const em=getPersonEmoji(ev.person); let txt=em+(SHORT[ev.type]||ev.type);
+      if(ev.type==='기타'&&ev.detail)txt=em+ev.detail; if(ev.type==='개인일정'&&ev.detail)txt=em+ev.detail;
+      if(ev.startTime)txt+=' '+ev.startTime;
+      const pill=document.createElement('div'); pill.className='month-pill'; pill.style.background=COLORS[ev.type]||'#999';
+      pill.textContent=txt; pill.title=txt; pill.onclick=e=>{ e.stopPropagation(); openDetailById(ev.id); }; cell.appendChild(pill);
+    });
+    if(!isOther) cell.onclick=()=>openAdd(ds);
+    return cell;
+  };
+  for(let i=firstDow-1;i>=0;i--){ const d=prevLast-i; const py=currentMonth===1?currentYear-1:currentYear; const pm=currentMonth===1?12:currentMonth-1; container.appendChild(makeCell(d,fmtDate(py,pm,d),true)); }
+  for(let d=1;d<=lastDate;d++) container.appendChild(makeCell(d,fmtDate(currentYear,currentMonth,d),false));
+  const total=container.children.length; const remain=total%7===0?0:7-(total%7);
+  for(let d=1;d<=remain;d++){ const ny=currentMonth===12?currentYear+1:currentYear; const nm=currentMonth===12?1:currentMonth+1; container.appendChild(makeCell(d,fmtDate(ny,nm,d),true)); }
+}
+
+/* ═══════════════════════════════════════
+   모달 — 일정 추가
+═══════════════════════════════════════ */
+function timeSelect(id,def){
+  let h=`<select id="${id}" class="time-sel"><option value="">—</option>`;
+  for(let hh=0;hh<24;hh++) for(let mm of[0,30]){ const t=pad(hh)+':'+pad(mm); h+=`<option value="${t}"${t===def?' selected':''}>${t}</option>`; }
+  return h+'</select>';
+}
+
+function openAdd(ds){ selDate=ds; selPerson=''; selType=''; setModal(renderStep1()); showModal(); }
+function renderStep1(){
+  return `<div class="modal-date">📅 ${korDate(selDate)}</div>
+    <div class="person-btns">
+      <div class="person-btn" onclick="selectPerson('민섭')"><div class="p-emoji">👨</div><div class="p-name">민섭</div></div>
+      <div class="person-btn" onclick="selectPerson('윤주')"><div class="p-emoji">👩</div><div class="p-name">윤주</div></div>
+    </div>`;
+}
+function selectPerson(p){ selPerson=p; selType=''; setModal(renderStep2()); }
+function renderStep2(){
+  const types=selPerson==='민섭'?MINSEOB_TYPES:YUNJU_TYPES;
+  let html=`<button class="back-btn" onclick="goBack()">← 뒤로</button>
+    <div class="modal-date">${getPersonEmoji(selPerson)} ${selPerson} · ${korDate(selDate)}</div>
+    <div class="type-grid">${types.map(t=>`<button class="type-btn" id="tb-${t}" onclick="selectType('${t}')">${t}</button>`).join('')}</div>
+    <div id="typeDetail"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" id="btnSave" onclick="doSave()" disabled>등록</button>
+    </div>`;
+  return html;
+}
+function selectType(t){
+  selType=t;
+  const types=selPerson==='민섭'?MINSEOB_TYPES:YUNJU_TYPES;
+  types.forEach(bt=>{
+    const el=document.getElementById('tb-'+bt); if(!el) return;
+    if(bt===t){el.style.background=COLORS[bt]||'#999';el.style.color='white';el.style.borderColor='transparent';}
+    else{el.style.background='white';el.style.color='#333';el.style.borderColor='#e8e8ea';}
+  });
+  const det=document.getElementById('typeDetail'); let html='';
+  if(selPerson==='민섭'){
+    if(t==='기타') html+=`<div class="input-section"><label>내용</label><input type="text" id="detailText" placeholder="예: 교육, 세미나..."></div>`;
+    html+=`<div class="time-row"><div class="input-section"><label>출근</label>${timeSelect('startTime','')}</div><div class="input-section"><label>집도착(예정)</label>${timeSelect('endTime','')}</div></div>`;
+  } else {
+    if(t==='바이올린레슨') html+=`<div class="time-row"><div class="input-section"><label>시작</label>${timeSelect('startTime','')}</div><div class="input-section"><label>종료</label>${timeSelect('endTime','')}</div></div>`;
+    else if(t==='오케스트라') html+=`<div class="time-row"><div class="input-section"><label>시작</label>${timeSelect('startTime','09:30')}</div><div class="input-section"><label>종료</label>${timeSelect('endTime','13:00')}</div></div>`;
+    else html+=`<div class="input-section"><label>내용</label><input type="text" id="detailText" placeholder="일정 내용 입력"></div><div class="time-row"><div class="input-section"><label>시작 (선택)</label>${timeSelect('startTime','')}</div><div class="input-section"><label>종료 (선택)</label>${timeSelect('endTime','')}</div></div>`;
+  }
+  det.innerHTML=html; document.getElementById('btnSave').disabled=false;
+}
+
+async function doSave(){
+  const data={
+    action:'save', date:selDate, person:selPerson, type:selType,
+    detail: document.getElementById('detailText')?.value.trim()||'',
+    startTime: document.getElementById('startTime')?.value||'',
+    endTime: document.getElementById('endTime')?.value||''
+  };
+  closeModal(); showSaving(true,'저장 중...');
+  try{ await postToScript(data); } catch(e){ alert('저장 실패: '+e.message); }
+  showSaving(false); loadData();
+}
+
+/* ═══════════════════════════════════════
+   모달 — 이벤트 상세
+═══════════════════════════════════════ */
+function openDetailById(id){ const ev=eventMap[id]; if(ev) openDetail(ev); }
+function openDetail(ev){
+  const color=COLORS[ev.type]||'#999'; const pn=getPersonName(ev.person); const em=getPersonEmoji(ev.person);
+  let title=ev.type; if((ev.type==='기타'||ev.type==='개인일정')&&ev.detail) title=ev.detail;
+  let meta=korDate(ev.date);
+  if(pn==='민섭'){ if(ev.startTime)meta+='\n출근  '+ev.startTime; if(ev.endTime)meta+='\n집도착(예정)  '+ev.endTime; }
+  else{ if(ev.startTime)meta+='\n'+ev.startTime+(ev.endTime?' ~ '+ev.endTime:''); }
+  setModal(`<div class="ev-detail-header"><div class="ev-detail-dot" style="background:${color}"></div><div class="ev-detail-title">${em} ${pn} · ${title}</div></div>
+    <div class="ev-detail-meta">${meta}</div>
+    <div class="detail-actions"><button class="btn-close" onclick="closeModal()">닫기</button><button class="btn-delete" onclick="doDelete('${ev.id}')">삭제</button></div>`);
+  showModal();
+}
+async function doDelete(id){
+  if(!confirm('이 일정을 삭제할까요?')) return;
+  closeModal(); showSaving(true,'삭제 중...');
+  try{ await postToScript({action:'delete',id}); } catch(e){ alert('삭제 실패: '+e.message); }
+  showSaving(false); loadData();
+}
+
+/* ═══════════════════════════════════════
+   모달 유틸
+═══════════════════════════════════════ */
+function goBack(){ selPerson=''; selType=''; setModal(renderStep1()); }
+function setModal(html){ document.getElementById('modalContent').innerHTML=html; }
+function showModal(){ document.getElementById('modalOverlay').classList.add('show'); }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+function closeOnOverlay(e){ if(e.target===document.getElementById('modalOverlay')) closeModal(); }
+
+/* ═══════════════════════════════════════
+   시작
+═══════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
